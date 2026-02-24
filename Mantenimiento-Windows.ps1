@@ -53,22 +53,23 @@ $Script:LogFile      = "$Script:LogDir\Mantenimiento_$(Get-Date -Format 'yyyy-MM
 $Script:Resumen      = [System.Collections.Generic.List[string]]::new()
 
 # Definicion de pasos disponibles (Requerido=$true = no se puede desmarcar)
-$Script:PasosDisponibles = [ordered]@{
-    '1'  = @{ Nombre="Informacion del sistema";            Desc="Detecta OS, CPU, RAM y tipo de disco (SSD/HDD)";  Funcion={ Obtener-InfoSistema };        Requerido=$true  }
-    '2'  = @{ Nombre="Limpieza de temporales";             Desc="Elimina archivos temporales del sistema y usuario"; Funcion={ Limpiar-Temporales };          Requerido=$false }
-    '3'  = @{ Nombre="Limpieza de disco (cleanmgr)";       Desc="Ejecuta la herramienta integrada de limpieza";     Funcion={ Ejecutar-LimpiezaDisco };      Requerido=$false }
-    '4'  = @{ Nombre="Optimizacion de almacenamiento";     Desc="TRIM para SSD/NVMe o desfragmentacion para HDD";   Funcion={ Optimizar-Almacenamiento };    Requerido=$false }
-    '5'  = @{ Nombre="Integridad del sistema (DISM+SFC)";  Desc="Verifica y repara archivos del sistema";           Funcion={ Verificar-IntegridadSistema }; Requerido=$false }
-    '6'  = @{ Nombre="Windows Update";                     Desc="Busca e instala actualizaciones pendientes";        Funcion={ Actualizar-Windows };          Requerido=$false }
-    '7'  = @{ Nombre="Analisis de seguridad (Defender)";   Desc="Actualiza firmas y ejecuta escaneo rapido";        Funcion={ Ejecutar-AntivirusScan };      Requerido=$false }
-    '8'  = @{ Nombre="Mantenimiento de red";               Desc="Vacia DNS, renueva IP y restablece Winsock";       Funcion={ Mantener-Red };                Requerido=$false }
-    '9'  = @{ Nombre="Eventos criticos del sistema";       Desc="Revisa errores criticos de las ultimas 24 h";      Funcion={ Revisar-EventosCriticos };     Requerido=$false }
-    '10' = @{ Nombre="Verificacion de disco (ChkDsk)";     Desc="Comprueba la integridad de volumenes NTFS";        Funcion={ Verificar-ChkDsk };            Requerido=$false }
-    '11' = @{ Nombre="Programas y servicios de inicio";    Desc="Lista entradas de inicio y servicios detenidos";   Funcion={ Revisar-Inicio };              Requerido=$false }
-    '12' = @{ Nombre="Revision de controladores";          Desc="Detecta dispositivos con errores";                 Funcion={ Revisar-Controladores };       Requerido=$false }
-    '13' = @{ Nombre="Configuracion de energia";           Desc="Verifica plan de energia y salud de bateria";      Funcion={ Verificar-Energia };           Requerido=$false }
-    '14' = @{ Nombre="Tareas de mantenimiento programado"; Desc="Dispara tareas integradas de mantenimiento";       Funcion={ Ejecutar-TareasMantenimiento }; Requerido=$false }
-}
+# Array de hashtables: evita la ambiguedad de indexacion de OrderedDictionary
+$Script:PasosDisponibles = @(
+    @{ Numero=1;  Nombre="Informacion del sistema";            Desc="Detecta OS, CPU, RAM y tipo de disco (SSD/HDD)";  Funcion={ Obtener-InfoSistema };         Requerido=$true;  Seleccionado=$true }
+    @{ Numero=2;  Nombre="Limpieza de temporales";             Desc="Elimina archivos temporales del sistema y usuario"; Funcion={ Limpiar-Temporales };           Requerido=$false; Seleccionado=$true }
+    @{ Numero=3;  Nombre="Limpieza de disco (cleanmgr)";       Desc="Ejecuta la herramienta integrada de limpieza";     Funcion={ Ejecutar-LimpiezaDisco };       Requerido=$false; Seleccionado=$true }
+    @{ Numero=4;  Nombre="Optimizacion de almacenamiento";     Desc="TRIM para SSD/NVMe o desfragmentacion para HDD";   Funcion={ Optimizar-Almacenamiento };     Requerido=$false; Seleccionado=$true }
+    @{ Numero=5;  Nombre="Integridad del sistema (DISM+SFC)";  Desc="Verifica y repara archivos del sistema";           Funcion={ Verificar-IntegridadSistema };  Requerido=$false; Seleccionado=$true }
+    @{ Numero=6;  Nombre="Windows Update";                     Desc="Busca e instala actualizaciones pendientes";        Funcion={ Actualizar-Windows };           Requerido=$false; Seleccionado=$true }
+    @{ Numero=7;  Nombre="Analisis de seguridad (Defender)";   Desc="Actualiza firmas y ejecuta escaneo rapido";        Funcion={ Ejecutar-AntivirusScan };       Requerido=$false; Seleccionado=$true }
+    @{ Numero=8;  Nombre="Mantenimiento de red";               Desc="Vacia DNS, renueva IP y restablece Winsock";       Funcion={ Mantener-Red };                 Requerido=$false; Seleccionado=$true }
+    @{ Numero=9;  Nombre="Eventos criticos del sistema";       Desc="Revisa errores criticos de las ultimas 24 h";      Funcion={ Revisar-EventosCriticos };      Requerido=$false; Seleccionado=$true }
+    @{ Numero=10; Nombre="Verificacion de disco (ChkDsk)";     Desc="Comprueba la integridad de volumenes NTFS";        Funcion={ Verificar-ChkDsk };             Requerido=$false; Seleccionado=$true }
+    @{ Numero=11; Nombre="Programas y servicios de inicio";    Desc="Lista entradas de inicio y servicios detenidos";   Funcion={ Revisar-Inicio };               Requerido=$false; Seleccionado=$true }
+    @{ Numero=12; Nombre="Revision de controladores";          Desc="Detecta dispositivos con errores";                 Funcion={ Revisar-Controladores };        Requerido=$false; Seleccionado=$true }
+    @{ Numero=13; Nombre="Configuracion de energia";           Desc="Verifica plan de energia y salud de bateria";      Funcion={ Verificar-Energia };            Requerido=$false; Seleccionado=$true }
+    @{ Numero=14; Nombre="Tareas de mantenimiento programado"; Desc="Dispara tareas integradas de mantenimiento";       Funcion={ Ejecutar-TareasMantenimiento }; Requerido=$false; Seleccionado=$true }
+)
 
 # ============================================================
 #  FUNCIONES DE UTILIDAD
@@ -787,16 +788,9 @@ function Mostrar-Resumen {
 # ============================================================
 function Mostrar-MenuPasos {
     param(
-        # Hashtable mutable: numero -> @{ ...; Seleccionado = $true/$false }
-        [System.Collections.Specialized.OrderedDictionary]$Definiciones
+        # Array de hashtables: @{ Numero; Nombre; Desc; Funcion; Requerido; Seleccionado }
+        [hashtable[]]$Definiciones
     )
-
-    # Inicializar campo Seleccionado si no existe
-    foreach ($num in $Definiciones.Keys) {
-        if (-not $Definiciones[$num].ContainsKey('Seleccionado')) {
-            $Definiciones[$num]['Seleccionado'] = $true
-        }
-    }
 
     while ($true) {
         Clear-Host
@@ -807,34 +801,32 @@ function Mostrar-MenuPasos {
         Write-Host "   SELECCION DE PASOS  -  Mantenimiento Windows v$Script:Version" -ForegroundColor Cyan
         Write-Host "  $('=' * 66)" -ForegroundColor Cyan
         Write-Host ""
-        Write-Host ("  {0,3}  {1,-3}  {2,-40}  {3}" -f "N°","Est","Paso","Descripcion") -ForegroundColor DarkGray
+        Write-Host ("  {0,3}  {1,-3}  {2,-40}  {3}" -f "N","Est","Paso","Descripcion") -ForegroundColor DarkGray
         Write-Host "  $('-' * 66)" -ForegroundColor DarkGray
 
-        foreach ($num in $Definiciones.Keys) {
-            $paso = $Definiciones[$num]
-
+        foreach ($paso in $Definiciones) {
             if ($paso.Requerido) {
-                $estado  = "[*]"
-                $colorN  = "DarkYellow"
-                $sufijo  = " (requerido)"
+                $estado = "[*]"
+                $color  = "DarkYellow"
+                $sufijo = " (requerido)"
             } elseif ($paso.Seleccionado) {
-                $estado  = "[X]"
-                $colorN  = "Green"
-                $sufijo  = ""
+                $estado = "[X]"
+                $color  = "Green"
+                $sufijo = ""
             } else {
-                $estado  = "[ ]"
-                $colorN  = "DarkGray"
-                $sufijo  = ""
+                $estado = "[ ]"
+                $color  = "DarkGray"
+                $sufijo = ""
             }
 
-            Write-Host ("  {0,3}  " -f $num) -NoNewline -ForegroundColor $colorN
-            Write-Host ("{0,-3}  " -f $estado) -NoNewline -ForegroundColor $colorN
-            Write-Host ("{0,-40}" -f ($paso.Nombre + $sufijo)) -NoNewline -ForegroundColor $colorN
+            Write-Host ("  {0,3}  " -f $paso.Numero) -NoNewline -ForegroundColor $color
+            Write-Host ("{0,-3}  " -f $estado) -NoNewline -ForegroundColor $color
+            Write-Host ("{0,-40}" -f ($paso.Nombre + $sufijo)) -NoNewline -ForegroundColor $color
             Write-Host ("  {0}" -f $paso.Desc) -ForegroundColor DarkGray
         }
 
-        # Conteo de pasos seleccionados
-        $seleccionados = ($Definiciones.Keys | Where-Object { $Definiciones[$_].Seleccionado }).Count
+        # Conteo — @() garantiza que .Count existe aunque haya 0 o 1 resultado
+        $seleccionados = @($Definiciones | Where-Object { $_.Seleccionado }).Count
         Write-Host ""
         Write-Host "  $('-' * 66)" -ForegroundColor DarkGray
         Write-Host "  Pasos seleccionados: $seleccionados de $($Definiciones.Count)" -ForegroundColor White
@@ -855,16 +847,10 @@ function Mostrar-MenuPasos {
 
         switch ($entrada.ToUpper()) {
             "T" {
-                foreach ($num in $Definiciones.Keys) {
-                    $Definiciones[$num]['Seleccionado'] = $true
-                }
+                $Definiciones | ForEach-Object { $_.Seleccionado = $true }
             }
             "N" {
-                foreach ($num in $Definiciones.Keys) {
-                    if (-not $Definiciones[$num].Requerido) {
-                        $Definiciones[$num]['Seleccionado'] = $false
-                    }
-                }
+                $Definiciones | Where-Object { -not $_.Requerido } | ForEach-Object { $_.Seleccionado = $false }
             }
             "Q" {
                 Write-Host "`n  Operacion cancelada por el usuario." -ForegroundColor Red
@@ -882,13 +868,18 @@ function Mostrar-MenuPasos {
             }
             default {
                 $numInt = 0
-                $numStr = $entrada.Trim()
-                if ([int]::TryParse($numStr, [ref]$numInt) -and $Definiciones.Contains($numStr)) {
-                    if ($Definiciones[$numStr].Requerido) {
-                        Write-Host "  El paso $numStr es requerido y no puede desactivarse." -ForegroundColor Red
-                        Start-Sleep -Seconds 2
+                if ([int]::TryParse($entrada, [ref]$numInt)) {
+                    $paso = $Definiciones | Where-Object { $_.Numero -eq $numInt } | Select-Object -First 1
+                    if ($paso) {
+                        if ($paso.Requerido) {
+                            Write-Host "  El paso $numInt es requerido y no puede desactivarse." -ForegroundColor Red
+                            Start-Sleep -Seconds 2
+                        } else {
+                            $paso.Seleccionado = -not $paso.Seleccionado
+                        }
                     } else {
-                        $Definiciones[$numStr]['Seleccionado'] = -not $Definiciones[$numStr].Seleccionado
+                        Write-Host "  Opcion no valida: '$entrada'" -ForegroundColor Red
+                        Start-Sleep -Seconds 1
                     }
                 } else {
                     Write-Host "  Opcion no valida: '$entrada'" -ForegroundColor Red
@@ -1023,48 +1014,41 @@ function Main {
 
     if ($TodosLosPasos) {
         # Marcar todos como seleccionados y saltar menu
-        foreach ($num in $Script:PasosDisponibles.Keys) {
-            $Script:PasosDisponibles[$num]['Seleccionado'] = $true
-        }
+        $Script:PasosDisponibles | ForEach-Object { $_.Seleccionado = $true }
         Escribir-Log "Modo completo: se ejecutaran todos los pasos." -Tipo INFO
 
     } elseif ($Pasos -and $Pasos.Count -gt 0) {
         # Pre-seleccionar solo los pasos indicados por parametro
-        foreach ($num in $Script:PasosDisponibles.Keys) {
-            $Script:PasosDisponibles[$num]['Seleccionado'] = (
-                $Script:PasosDisponibles[$num].Requerido -or ([int]$num -in $Pasos)
-            )
+        $Script:PasosDisponibles | ForEach-Object {
+            $_.Seleccionado = $_.Requerido -or ($_.Numero -in $Pasos)
         }
-        $nombresSeleccionados = ($Pasos | Sort-Object | ForEach-Object {
-            if ($Script:PasosDisponibles.Contains($_.ToString())) { $Script:PasosDisponibles[$_.ToString()].Nombre }
-        }) -join ", "
+        $nombresSeleccionados = ($Script:PasosDisponibles |
+            Where-Object { $_.Seleccionado } |
+            Sort-Object Numero |
+            ForEach-Object { $_.Nombre }) -join ", "
         Escribir-Log "Pasos seleccionados por parametro: $nombresSeleccionados" -Tipo INFO
 
     } else {
-        # Mostrar menu interactivo
-        foreach ($num in $Script:PasosDisponibles.Keys) {
-            $Script:PasosDisponibles[$num]['Seleccionado'] = $true
-        }
+        # Mostrar menu interactivo (Seleccionado ya viene en $true desde la definicion)
         Mostrar-MenuPasos -Definiciones $Script:PasosDisponibles
     }
 
     # Registrar en log que pasos se ejecutaran
-    $pasosActivos = $Script:PasosDisponibles.Keys | Where-Object { $Script:PasosDisponibles[$_].Seleccionado }
+    $pasosActivos = @($Script:PasosDisponibles | Where-Object { $_.Seleccionado } | Sort-Object Numero).Numero
     Escribir-Log "Pasos a ejecutar: $($pasosActivos -join ', ')" -Tipo INFO
 
     # --- Ejecutar pasos seleccionados en orden ---
-    foreach ($num in ($Script:PasosDisponibles.Keys | Sort-Object { [int]$_ })) {
-        $paso = $Script:PasosDisponibles[$num]
+    foreach ($paso in ($Script:PasosDisponibles | Sort-Object Numero)) {
         if ($paso.Seleccionado) {
-            Escribir-Log "Ejecutando paso $num`: $($paso.Nombre)" -Tipo INFO
+            Escribir-Log "Ejecutando paso $($paso.Numero): $($paso.Nombre)" -Tipo INFO
             try {
                 & $paso.Funcion
             } catch {
-                Escribir-Log "Error inesperado en paso $num ($($paso.Nombre)): $($_.Exception.Message)" -Tipo ERROR
-                Agregar-Resumen "Paso $num ($($paso.Nombre)): ERROR  -  $($_.Exception.Message)"
+                Escribir-Log "Error inesperado en paso $($paso.Numero) ($($paso.Nombre)): $($_.Exception.Message)" -Tipo ERROR
+                Agregar-Resumen "Paso $($paso.Numero) ($($paso.Nombre)): ERROR  -  $($_.Exception.Message)"
             }
         } else {
-            Escribir-Log "Paso $num omitido por el usuario: $($paso.Nombre)" -Tipo INFO
+            Escribir-Log "Paso $($paso.Numero) omitido por el usuario: $($paso.Nombre)" -Tipo INFO
         }
     }
 
