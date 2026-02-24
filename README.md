@@ -252,6 +252,7 @@ $content = Get-Content '.\Mantenimiento-Windows.ps1' -Raw
 
 | Version | Cambios |
 |---|---|
+| 1.2.2 | Corrige error `The property 'Count' cannot be found on this object` al seleccionar [N] Ninguno en el menu. Causa raiz: `OrderedDictionary` siempre usa el indexador posicional (`int`) en PowerShell aunque las claves sean strings, devolviendo `$null` cuando el indice estaba fuera de rango. Solucion definitiva: reemplaza `[ordered]@{}` por un array de hashtables con iteracion directa (`foreach`/`Where-Object`/`ForEach-Object`) eliminando cualquier indexador ambiguo |
 | 1.2.1 | Corrige error de indice fuera de rango (`Index was out of range`) en el menu de seleccion de pasos al acceder al paso 14. Causa: `[ordered]@{}` con claves enteras usa indexacion posicional en lugar de por clave. Solucion: claves convertidas a strings. Ademas: encoding corregido a UTF-8 con BOM y CRLF para compatibilidad con Windows PowerShell 5.1 |
 | 1.2.0 | Menu interactivo de seleccion de pasos, parametros `-Pasos` y `-TodosLosPasos` |
 | 1.1.0 | Opcion de reinicio al finalizar con cuenta regresiva cancelable, parametros `-AutoReiniciar` y `-SegundosEspera` |
