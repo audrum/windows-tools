@@ -52,7 +52,7 @@ Cuando se ejecuta sin parametros, muestra un menu donde se pueden activar o desa
 
 ```
   ====================================================================
-   SELECCION DE PASOS — Mantenimiento Windows v1.2.0
+   SELECCION DE PASOS  -  Mantenimiento Windows v1.2.0
   ====================================================================
 
    N°  Est  Paso                                      Descripcion
@@ -176,12 +176,12 @@ El script esta disenado para ser conservador con los datos del usuario:
 - Cualquier archivo fuera de rutas de temporales del sistema
 
 Solo se eliminan archivos en las siguientes rutas seguras:
-- `C:\Windows\Temp` — temporales del sistema (>2 dias)
+- `C:\Windows\Temp` - temporales del sistema (>2 dias)
 - `%TEMP%` del usuario actual (>2 dias)
-- `C:\Windows\SoftwareDistribution\Download` — cache de descarga de Windows Update
-- `C:\Windows\Minidump` — volcados de memoria (>30 dias)
-- `C:\Windows\Prefetch` — archivos de precarga (>30 dias)
-- `C:\ProgramData\Microsoft\Windows\WER\Temp` — temporales de informe de errores
+- `C:\Windows\SoftwareDistribution\Download` - cache de descarga de Windows Update
+- `C:\Windows\Minidump` - volcados de memoria (>30 dias)
+- `C:\Windows\Prefetch` - archivos de precarga (>30 dias)
+- `C:\ProgramData\Microsoft\Windows\WER\Temp` - temporales de informe de errores
 
 ---
 
@@ -221,10 +221,38 @@ Register-ScheduledTask `
 
 ---
 
+## Compatibilidad con Windows PowerShell 5.1
+
+El script esta guardado en **UTF-8 con BOM** y saltos de linea **CRLF**, que es el formato requerido por Windows PowerShell 5.1. Si el archivo se abre y se guarda con un editor que cambie el encoding (sin BOM o con LF), puede aparecer el siguiente error al ejecutarlo:
+
+```
+Missing expression after unary operator '--'
+```
+
+Para verificar o corregir el encoding desde PowerShell:
+
+```powershell
+# Verificar encoding actual
+$bytes = [System.IO.File]::ReadAllBytes('.\Mantenimiento-Windows.ps1')
+if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "OK: UTF-8 con BOM"
+} else {
+    Write-Host "ADVERTENCIA: falta BOM - puede causar errores"
+}
+
+# Corregir encoding si es necesario
+$content = Get-Content '.\Mantenimiento-Windows.ps1' -Raw
+[System.IO.File]::WriteAllText('.\Mantenimiento-Windows.ps1', $content,
+    [System.Text.UTF8Encoding]::new($true))  # $true = incluir BOM
+```
+
+---
+
 ## Version
 
 | Version | Cambios |
 |---|---|
+| 1.2.1 | Corrige error de indice fuera de rango (`Index was out of range`) en el menu de seleccion de pasos al acceder al paso 14. Causa: `[ordered]@{}` con claves enteras usa indexacion posicional en lugar de por clave. Solucion: claves convertidas a strings. Ademas: encoding corregido a UTF-8 con BOM y CRLF para compatibilidad con Windows PowerShell 5.1 |
 | 1.2.0 | Menu interactivo de seleccion de pasos, parametros `-Pasos` y `-TodosLosPasos` |
 | 1.1.0 | Opcion de reinicio al finalizar con cuenta regresiva cancelable, parametros `-AutoReiniciar` y `-SegundosEspera` |
 | 1.0.0 | Version inicial con los 14 pasos de mantenimiento y deteccion SSD/HDD |
