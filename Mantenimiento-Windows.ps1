@@ -54,20 +54,20 @@ $Script:Resumen      = [System.Collections.Generic.List[string]]::new()
 
 # Definicion de pasos disponibles (Requerido=$true = no se puede desmarcar)
 $Script:PasosDisponibles = [ordered]@{
-    1  = @{ Nombre="Informacion del sistema";            Desc="Detecta OS, CPU, RAM y tipo de disco (SSD/HDD)";  Funcion={ Obtener-InfoSistema };        Requerido=$true  }
-    2  = @{ Nombre="Limpieza de temporales";             Desc="Elimina archivos temporales del sistema y usuario"; Funcion={ Limpiar-Temporales };          Requerido=$false }
-    3  = @{ Nombre="Limpieza de disco (cleanmgr)";       Desc="Ejecuta la herramienta integrada de limpieza";     Funcion={ Ejecutar-LimpiezaDisco };      Requerido=$false }
-    4  = @{ Nombre="Optimizacion de almacenamiento";     Desc="TRIM para SSD/NVMe o desfragmentacion para HDD";   Funcion={ Optimizar-Almacenamiento };    Requerido=$false }
-    5  = @{ Nombre="Integridad del sistema (DISM+SFC)";  Desc="Verifica y repara archivos del sistema";           Funcion={ Verificar-IntegridadSistema }; Requerido=$false }
-    6  = @{ Nombre="Windows Update";                     Desc="Busca e instala actualizaciones pendientes";        Funcion={ Actualizar-Windows };          Requerido=$false }
-    7  = @{ Nombre="Analisis de seguridad (Defender)";   Desc="Actualiza firmas y ejecuta escaneo rapido";        Funcion={ Ejecutar-AntivirusScan };      Requerido=$false }
-    8  = @{ Nombre="Mantenimiento de red";               Desc="Vacia DNS, renueva IP y restablece Winsock";       Funcion={ Mantener-Red };                Requerido=$false }
-    9  = @{ Nombre="Eventos criticos del sistema";       Desc="Revisa errores criticos de las ultimas 24 h";      Funcion={ Revisar-EventosCriticos };     Requerido=$false }
-    10 = @{ Nombre="Verificacion de disco (ChkDsk)";     Desc="Comprueba la integridad de volumenes NTFS";        Funcion={ Verificar-ChkDsk };            Requerido=$false }
-    11 = @{ Nombre="Programas y servicios de inicio";    Desc="Lista entradas de inicio y servicios detenidos";   Funcion={ Revisar-Inicio };              Requerido=$false }
-    12 = @{ Nombre="Revision de controladores";          Desc="Detecta dispositivos con errores";                 Funcion={ Revisar-Controladores };       Requerido=$false }
-    13 = @{ Nombre="Configuracion de energia";           Desc="Verifica plan de energia y salud de bateria";      Funcion={ Verificar-Energia };           Requerido=$false }
-    14 = @{ Nombre="Tareas de mantenimiento programado"; Desc="Dispara tareas integradas de mantenimiento";       Funcion={ Ejecutar-TareasMantenimiento }; Requerido=$false }
+    '1'  = @{ Nombre="Informacion del sistema";            Desc="Detecta OS, CPU, RAM y tipo de disco (SSD/HDD)";  Funcion={ Obtener-InfoSistema };        Requerido=$true  }
+    '2'  = @{ Nombre="Limpieza de temporales";             Desc="Elimina archivos temporales del sistema y usuario"; Funcion={ Limpiar-Temporales };          Requerido=$false }
+    '3'  = @{ Nombre="Limpieza de disco (cleanmgr)";       Desc="Ejecuta la herramienta integrada de limpieza";     Funcion={ Ejecutar-LimpiezaDisco };      Requerido=$false }
+    '4'  = @{ Nombre="Optimizacion de almacenamiento";     Desc="TRIM para SSD/NVMe o desfragmentacion para HDD";   Funcion={ Optimizar-Almacenamiento };    Requerido=$false }
+    '5'  = @{ Nombre="Integridad del sistema (DISM+SFC)";  Desc="Verifica y repara archivos del sistema";           Funcion={ Verificar-IntegridadSistema }; Requerido=$false }
+    '6'  = @{ Nombre="Windows Update";                     Desc="Busca e instala actualizaciones pendientes";        Funcion={ Actualizar-Windows };          Requerido=$false }
+    '7'  = @{ Nombre="Analisis de seguridad (Defender)";   Desc="Actualiza firmas y ejecuta escaneo rapido";        Funcion={ Ejecutar-AntivirusScan };      Requerido=$false }
+    '8'  = @{ Nombre="Mantenimiento de red";               Desc="Vacia DNS, renueva IP y restablece Winsock";       Funcion={ Mantener-Red };                Requerido=$false }
+    '9'  = @{ Nombre="Eventos criticos del sistema";       Desc="Revisa errores criticos de las ultimas 24 h";      Funcion={ Revisar-EventosCriticos };     Requerido=$false }
+    '10' = @{ Nombre="Verificacion de disco (ChkDsk)";     Desc="Comprueba la integridad de volumenes NTFS";        Funcion={ Verificar-ChkDsk };            Requerido=$false }
+    '11' = @{ Nombre="Programas y servicios de inicio";    Desc="Lista entradas de inicio y servicios detenidos";   Funcion={ Revisar-Inicio };              Requerido=$false }
+    '12' = @{ Nombre="Revision de controladores";          Desc="Detecta dispositivos con errores";                 Funcion={ Revisar-Controladores };       Requerido=$false }
+    '13' = @{ Nombre="Configuracion de energia";           Desc="Verifica plan de energia y salud de bateria";      Funcion={ Verificar-Energia };           Requerido=$false }
+    '14' = @{ Nombre="Tareas de mantenimiento programado"; Desc="Dispara tareas integradas de mantenimiento";       Funcion={ Ejecutar-TareasMantenimiento }; Requerido=$false }
 }
 
 # ============================================================
@@ -881,13 +881,14 @@ function Mostrar-MenuPasos {
                 }
             }
             default {
-                $num = 0
-                if ([int]::TryParse($entrada, [ref]$num) -and $Definiciones.Contains($num)) {
-                    if ($Definiciones[$num].Requerido) {
-                        Write-Host "  El paso $num es requerido y no puede desactivarse." -ForegroundColor Red
+                $numInt = 0
+                $numStr = $entrada.Trim()
+                if ([int]::TryParse($numStr, [ref]$numInt) -and $Definiciones.Contains($numStr)) {
+                    if ($Definiciones[$numStr].Requerido) {
+                        Write-Host "  El paso $numStr es requerido y no puede desactivarse." -ForegroundColor Red
                         Start-Sleep -Seconds 2
                     } else {
-                        $Definiciones[$num]['Seleccionado'] = -not $Definiciones[$num].Seleccionado
+                        $Definiciones[$numStr]['Seleccionado'] = -not $Definiciones[$numStr].Seleccionado
                     }
                 } else {
                     Write-Host "  Opcion no valida: '$entrada'" -ForegroundColor Red
@@ -1031,11 +1032,11 @@ function Main {
         # Pre-seleccionar solo los pasos indicados por parametro
         foreach ($num in $Script:PasosDisponibles.Keys) {
             $Script:PasosDisponibles[$num]['Seleccionado'] = (
-                $Script:PasosDisponibles[$num].Requerido -or ($num -in $Pasos)
+                $Script:PasosDisponibles[$num].Requerido -or ([int]$num -in $Pasos)
             )
         }
         $nombresSeleccionados = ($Pasos | Sort-Object | ForEach-Object {
-            if ($Script:PasosDisponibles.Contains($_)) { $Script:PasosDisponibles[$_].Nombre }
+            if ($Script:PasosDisponibles.Contains($_.ToString())) { $Script:PasosDisponibles[$_.ToString()].Nombre }
         }) -join ", "
         Escribir-Log "Pasos seleccionados por parametro: $nombresSeleccionados" -Tipo INFO
 
@@ -1052,7 +1053,7 @@ function Main {
     Escribir-Log "Pasos a ejecutar: $($pasosActivos -join ', ')" -Tipo INFO
 
     # --- Ejecutar pasos seleccionados en orden ---
-    foreach ($num in ($Script:PasosDisponibles.Keys | Sort-Object)) {
+    foreach ($num in ($Script:PasosDisponibles.Keys | Sort-Object { [int]$_ })) {
         $paso = $Script:PasosDisponibles[$num]
         if ($paso.Seleccionado) {
             Escribir-Log "Ejecutando paso $num`: $($paso.Nombre)" -Tipo INFO
