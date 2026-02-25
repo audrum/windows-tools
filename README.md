@@ -1,6 +1,6 @@
 # Mantenimiento-Windows.ps1
 
-Script de PowerShell para realizar un mantenimiento completo y automatizado de equipos con **Windows 10 y Windows 11**. Detecta el tipo de almacenamiento instalado (SSD, NVMe o HDD) y adapta los pasos correspondientes. No elimina archivos sensibles ni datos del usuario. Incluye un modo de **interfaz grafica** (`-GUI`) con checkboxes, log en tiempo real y barra de progreso.
+Script de PowerShell para realizar un mantenimiento completo y automatizado de equipos con **Windows 10 y Windows 11**. Detecta el tipo de almacenamiento instalado (SSD, NVMe o HDD) y adapta los pasos correspondientes. No elimina archivos sensibles ni datos del usuario.
 
 ---
 
@@ -65,7 +65,6 @@ Para pasar opciones usa la sintaxis de scriptblock:
 | `-Pasos` | `int[]` | Lista de numeros de paso a ejecutar (ej. `2,5,6`) |
 | `-AutoReiniciar` | Switch | Reinicia el equipo automaticamente al finalizar |
 | `-SegundosEspera` | `int` | Segundos de cuenta regresiva antes del reinicio automatico (defecto: `60`) |
-| `-GUI` | Switch | Abre una ventana grafica con checkboxes, log en tiempo real y barra de progreso |
 
 ---
 
@@ -81,7 +80,7 @@ Cuando se ejecuta sin parametros, muestra un menu donde se pueden activar o desa
 
 ```
   ====================================================================
-   SELECCION DE PASOS  -  Mantenimiento Windows v1.4.0
+   SELECCION DE PASOS  -  Mantenimiento Windows v1.3.1
   ====================================================================
 
    N   Est  Paso                                      Descripcion
@@ -138,20 +137,6 @@ Util para automatizacion o tareas programadas. El paso 1 siempre se incluye.
 
 # Pasos especificos + reinicio en 30 segundos
 .\Mantenimiento-Windows.ps1 -Pasos 2,5,7 -AutoReiniciar -SegundosEspera 30
-```
-
----
-
-### Interfaz grafica (GUI)
-
-Abre una ventana WinForms con checkboxes visuales para seleccionar pasos, log de progreso en tiempo real con colores y barra de progreso. Al finalizar muestra un dialogo para reiniciar el equipo.
-
-```powershell
-# Ejecucion local
-.\Mantenimiento-Windows.ps1 -GUI
-
-# Via irm (con parametros)
-& ([scriptblock]::Create((irm 'run.andresbolivar.me/run.ps1'))) -GUI
 ```
 
 ---
@@ -259,9 +244,6 @@ Muestra un prompt `[S] Reiniciar ahora / [N] Reiniciar despues`. Si se elige **S
 
 ### Modo automatico (`-AutoReiniciar`)
 Inicia directamente la cuenta regresiva con los segundos configurados en `-SegundosEspera` (defecto: 60). El usuario puede cancelar presionando cualquier tecla en cualquier momento de la cuenta.
-
-### Modo GUI (`-GUI`)
-Al finalizar todos los pasos aparece un dialogo **¿Desea reiniciar el equipo ahora?** con opciones Si / No. Si se elige Si, el equipo reinicia inmediatamente.
 
 ---
 
@@ -371,7 +353,6 @@ $content = Get-Content '.\Mantenimiento-Windows.ps1' -Raw
 
 | Version | Cambios |
 |---|---|
-| 1.4.0 | Agrega interfaz grafica WinForms (`-GUI`): checkboxes visuales para seleccionar pasos, log en tiempo real con colores por tipo (INFO/OK/WARN/ERROR/SECCION), barra de progreso y dialogo de reinicio al finalizar. Los pasos se ejecutan en un runspace independiente para no bloquear la UI. Se actualiza `run.ps1` para reenviar `-GUI` en la elevacion UAC |
 | 1.3.1 | Agrega porcentaje de salud del disco similar a HDD Sentinel en el paso 15. Muestra una barra de progreso visual (`[#####-----]`) con color verde/amarillo/rojo segun el estado y lista los factores que reducen la salud (errores, desgaste, temperatura, latencia, uso prolongado) |
 | 1.3.0 | Agrega paso 15: verificacion de salud de disco con S.M.A.R.T. Detecta temperatura critica, desgaste de SSD, errores de lectura/escritura no corregidos, horas de encendido y latencias elevadas usando `Get-StorageReliabilityCounter` nativo de Windows |
 | 1.2.2 | Corrige error `The property 'Count' cannot be found on this object` al seleccionar [N] Ninguno en el menu. Causa raiz: `OrderedDictionary` siempre usa el indexador posicional (`int`) en PowerShell aunque las claves sean strings, devolviendo `$null` cuando el indice estaba fuera de rango. Solucion definitiva: reemplaza `[ordered]@{}` por un array de hashtables con iteracion directa (`foreach`/`Where-Object`/`ForEach-Object`) eliminando cualquier indexador ambiguo |

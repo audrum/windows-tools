@@ -7,8 +7,7 @@ function Invoke-Mantenimiento {
         [switch]$AutoReiniciar,
         [int]$SegundosEspera = 60,
         [int[]]$Pasos,
-        [switch]$TodosLosPasos,
-        [switch]$GUI
+        [switch]$TodosLosPasos
     )
 
     $ScriptUrl = 'https://raw.githubusercontent.com/audrum/mantenimiento-windows/master/Mantenimiento-Windows.ps1'
@@ -25,7 +24,6 @@ function Invoke-Mantenimiento {
         if ($PSBoundParameters.ContainsKey('SegundosEspera'))      { $argsParts.Add("-SegundosEspera $SegundosEspera") }
         if ($Pasos)                                                { $argsParts.Add("-Pasos $($Pasos -join ',')") }
         if ($TodosLosPasos)                                        { $argsParts.Add('-TodosLosPasos') }
-        if ($GUI)                                                  { $argsParts.Add('-GUI') }
 
         $argsPasados = if ($argsParts.Count -gt 0) { ' ' + ($argsParts -join ' ') } else { '' }
 
@@ -41,7 +39,6 @@ function Invoke-Mantenimiento {
     if ($PSBoundParameters.ContainsKey('SegundosEspera'))      { $params['SegundosEspera'] = $SegundosEspera }
     if ($Pasos)                                                { $params['Pasos']          = $Pasos }
     if ($TodosLosPasos)                                        { $params['TodosLosPasos']  = $true }
-    if ($GUI)                                                  { $params['GUI']            = $true }
 
     $bloque = [scriptblock]::Create((Invoke-RestMethod -Uri $ScriptUrl))
     & $bloque @params
