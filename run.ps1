@@ -1,4 +1,4 @@
-﻿# run.ps1 - Descargador y lanzador con elevacion automatica
+# run.ps1 - Descargador y lanzador con elevacion automatica
 # Uso directo:    irm run.andresbolivar.me/run.ps1 | iex
 # Con parametros: & ([scriptblock]::Create((irm 'run.andresbolivar.me/run.ps1'))) -TodosLosPasos
 
