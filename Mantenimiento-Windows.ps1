@@ -46,7 +46,7 @@ $ErrorActionPreference = "Continue"
 # ============================================================
 #  CONFIGURACION GLOBAL
 # ============================================================
-$Script:Version      = "1.3.0"
+$Script:Version      = "1.3.1"
 $Script:FechaInicio  = Get-Date
 $Script:LogDir       = "$env:SystemDrive\Mantenimiento_Logs"
 $Script:LogFile      = "$Script:LogDir\Mantenimiento_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
@@ -764,6 +764,99 @@ function Ejecutar-TareasMantenimiento {
 }
 
 # ============================================================
+#  HELPER  -  CALCULO DE PORCENTAJE DE SALUD DEL DISCO
+# ============================================================
+function Calcular-PorcentajeSalud {
+    param(
+        $Disco,   # PhysicalDisk object
+        $Smart    # StorageReliabilityCounter object (puede ser $null)
+    )
+
+    $salud    = 100
+    $factores = [System.Collections.Generic.List[string]]::new()
+
+    # 1. Estado general reportado por Windows
+    switch ($Disco.HealthStatus) {
+        "Unhealthy" {
+            $salud = [math]::Min($salud, 10)
+            $factores.Add("Estado Windows: No saludable")
+        }
+        "Warning" {
+            $salud = [math]::Min($salud, 65)
+            $factores.Add("Estado Windows: Advertencia")
+        }
+    }
+
+    if ($null -ne $Smart) {
+        $esHDD = $Disco.MediaType -eq "HDD"
+
+        # 2. Errores no corregidos (impacto alto: -25% por tipo)
+        if ($null -ne $Smart.ReadErrorsUncorrected -and $Smart.ReadErrorsUncorrected -gt 0) {
+            $salud -= 25
+            $factores.Add("Errores de lectura no corregidos: $($Smart.ReadErrorsUncorrected)")
+        }
+        if ($null -ne $Smart.WriteErrorsUncorrected -and $Smart.WriteErrorsUncorrected -gt 0) {
+            $salud -= 25
+            $factores.Add("Errores de escritura no corregidos: $($Smart.WriteErrorsUncorrected)")
+        }
+
+        # 3. Desgaste SSD/NVMe
+        if ($null -ne $Smart.Wear -and $Smart.Wear -gt 0) {
+            if ($Smart.Wear -ge 90) {
+                $salud = [math]::Min($salud, 100 - $Smart.Wear)
+                $factores.Add("Desgaste critico: $($Smart.Wear)% usado")
+            } elseif ($Smart.Wear -ge 70) {
+                $salud -= 15
+                $factores.Add("Desgaste elevado: $($Smart.Wear)% usado")
+            }
+        }
+
+        # 4. Temperatura
+        if ($null -ne $Smart.Temperature -and $Smart.Temperature -gt 0) {
+            $limCrit = if ($esHDD) { 55 } else { 70 }
+            $limWarn = if ($esHDD) { 45 } else { 60 }
+            if ($Smart.Temperature -ge $limCrit) {
+                $salud -= 20
+                $factores.Add("Temperatura critica: $($Smart.Temperature) C")
+            } elseif ($Smart.Temperature -ge $limWarn) {
+                $salud -= 10
+                $factores.Add("Temperatura elevada: $($Smart.Temperature) C")
+            }
+        }
+
+        # 5. Latencias maximas
+        $latMax = 0
+        if ($null -ne $Smart.ReadLatencyMax)  { $latMax = [math]::Max($latMax, $Smart.ReadLatencyMax) }
+        if ($null -ne $Smart.WriteLatencyMax) { $latMax = [math]::Max($latMax, $Smart.WriteLatencyMax) }
+        if ($latMax -gt 1000) {
+            $salud -= 10
+            $factores.Add("Latencia muy alta: $latMax ms")
+        } elseif ($latMax -gt 500) {
+            $salud -= 5
+            $factores.Add("Latencia elevada: $latMax ms")
+        }
+
+        # 6. Horas de encendido (impacto informativo: -5%)
+        if ($null -ne $Smart.PowerOnHours -and $Smart.PowerOnHours -gt 0) {
+            $limHoras = if ($esHDD) { 35000 } else { 43800 }
+            if ($Smart.PowerOnHours -gt $limHoras) {
+                $salud -= 5
+                $factores.Add("Uso prolongado: $($Smart.PowerOnHours) h")
+            }
+        }
+    }
+
+    $salud  = [math]::Max(0, [math]::Min(100, $salud))
+    $estado = if ($salud -ge 80) { "Bueno" } elseif ($salud -ge 50) { "Regular" } else { "Malo" }
+
+    return @{
+        Porcentaje = $salud
+        Estado     = $estado
+        Factores   = $factores
+    }
+}
+
+# ============================================================
 #  PASO 15 - SALUD DE DISCO (S.M.A.R.T.)
 # ============================================================
 function Verificar-SaludDisco {
@@ -802,6 +895,7 @@ function Verificar-SaludDisco {
         Escribir-Log "  Estado operativo    : $($disco.OperationalStatus)" -Tipo INFO
 
         # --- Contadores S.M.A.R.T. via StorageReliabilityCounter ---
+        $smart = $null
         try {
             $smart = Get-StorageReliabilityCounter -PhysicalDisk $disco -ErrorAction Stop
 
@@ -883,6 +977,23 @@ function Verificar-SaludDisco {
 
         } catch {
             Escribir-Log "  Contadores S.M.A.R.T. no disponibles: $($_.Exception.Message)" -Tipo WARN
+        }
+
+        # Porcentaje de salud del disco
+        $resultado = Calcular-PorcentajeSalud -Disco $disco -Smart $smart
+        $pct    = $resultado.Porcentaje
+        $barLen = 25
+        $filled = [math]::Round($barLen * $pct / 100)
+        $bar    = ('#' * $filled) + ('-' * ($barLen - $filled))
+        $color  = if ($pct -ge 80) { "Green" } elseif ($pct -ge 50) { "Yellow" } else { "Red" }
+        $lineaSalud = "  Salud del disco     : [$bar] $pct%  - $($resultado.Estado)"
+        Write-Host $lineaSalud -ForegroundColor $color
+        Add-Content -Path $Script:LogFile -Value $lineaSalud -Encoding UTF8
+        if ($resultado.Factores.Count -gt 0) {
+            Escribir-Log "  Factores detectados:" -Tipo INFO
+            foreach ($factor in $resultado.Factores) {
+                Escribir-Log "    - $factor" -Tipo INFO
+            }
         }
 
         Escribir-Log "" -Tipo INFO

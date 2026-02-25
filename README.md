@@ -52,7 +52,7 @@ Cuando se ejecuta sin parametros, muestra un menu donde se pueden activar o desa
 
 ```
   ====================================================================
-   SELECCION DE PASOS  -  Mantenimiento Windows v1.3.0
+   SELECCION DE PASOS  -  Mantenimiento Windows v1.3.1
   ====================================================================
 
    N   Est  Paso                                      Descripcion
@@ -288,6 +288,7 @@ $content = Get-Content '.\Mantenimiento-Windows.ps1' -Raw
 
 | Version | Cambios |
 |---|---|
+| 1.3.1 | Agrega porcentaje de salud del disco similar a HDD Sentinel en el paso 15. Muestra una barra de progreso visual (`[#####-----]`) con color verde/amarillo/rojo segun el estado y lista los factores que reducen la salud (errores, desgaste, temperatura, latencia, uso prolongado) |
 | 1.3.0 | Agrega paso 15: verificacion de salud de disco con S.M.A.R.T. Detecta temperatura critica, desgaste de SSD, errores de lectura/escritura no corregidos, horas de encendido y latencias elevadas usando `Get-StorageReliabilityCounter` nativo de Windows |
 | 1.2.2 | Corrige error `The property 'Count' cannot be found on this object` al seleccionar [N] Ninguno en el menu. Causa raiz: `OrderedDictionary` siempre usa el indexador posicional (`int`) en PowerShell aunque las claves sean strings, devolviendo `$null` cuando el indice estaba fuera de rango. Solucion definitiva: reemplaza `[ordered]@{}` por un array de hashtables con iteracion directa (`foreach`/`Where-Object`/`ForEach-Object`) eliminando cualquier indexador ambiguo |
 | 1.2.1 | Corrige error de indice fuera de rango (`Index was out of range`) en el menu de seleccion de pasos al acceder al paso 14. Causa: `[ordered]@{}` con claves enteras usa indexacion posicional en lugar de por clave. Solucion: claves convertidas a strings. Ademas: encoding corregido a UTF-8 con BOM y CRLF para compatibilidad con Windows PowerShell 5.1 |
