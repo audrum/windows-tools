@@ -17,6 +17,8 @@
     Si se omite y no se usa -TodosLosPasos, se muestra el menu interactivo.
 .PARAMETER TodosLosPasos
     Ejecuta todos los pasos sin mostrar el menu de seleccion.
+.PARAMETER GUI
+    Abre una ventana grafica (WinForms) con checkboxes, log en tiempo real y barra de progreso.
 .EXAMPLE
     .\Mantenimiento-Windows.ps1
     Muestra el menu interactivo para elegir los pasos y pregunta si reiniciar.
@@ -29,6 +31,9 @@
 .EXAMPLE
     .\Mantenimiento-Windows.ps1 -TodosLosPasos -AutoReiniciar -SegundosEspera 30
     Ejecuta todos los pasos y reinicia automaticamente en 30 segundos.
+.EXAMPLE
+    .\Mantenimiento-Windows.ps1 -GUI
+    Abre la interfaz grafica para seleccionar pasos y ver el progreso en tiempo real.
 .NOTES
     Requiere ejecucion como Administrador.
     Compatible con Windows 10 y Windows 11.
@@ -37,7 +42,8 @@ param(
     [switch]$AutoReiniciar,
     [int]$SegundosEspera = 60,
     [int[]]$Pasos,
-    [switch]$TodosLosPasos
+    [switch]$TodosLosPasos,
+    [switch]$GUI
 )
 
 Set-StrictMode -Version Latest
@@ -46,11 +52,12 @@ $ErrorActionPreference = "Continue"
 # ============================================================
 #  CONFIGURACION GLOBAL
 # ============================================================
-$Script:Version      = "1.3.1"
+$Script:Version      = "1.4.0"
 $Script:FechaInicio  = Get-Date
 $Script:LogDir       = "$env:SystemDrive\Mantenimiento_Logs"
 $Script:LogFile      = "$Script:LogDir\Mantenimiento_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
 $Script:Resumen      = [System.Collections.Generic.List[string]]::new()
+$Script:GUIQueue     = $null   # $null = consola; synchronized Queue = GUI
 
 # Definicion de pasos disponibles (Requerido=$true = no se puede desmarcar)
 # Array de hashtables: evita la ambiguedad de indexacion de OrderedDictionary
@@ -85,13 +92,16 @@ function Escribir-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $linea = "[$timestamp][$Tipo] $Mensaje"
 
-    # Color en consola
-    switch ($Tipo) {
-        "OK"      { Write-Host $linea -ForegroundColor Green }
-        "WARN"    { Write-Host $linea -ForegroundColor Yellow }
-        "ERROR"   { Write-Host $linea -ForegroundColor Red }
-        "SECCION" { Write-Host "`n$('=' * 70)`n  $Mensaje`n$('=' * 70)" -ForegroundColor Cyan }
-        default   { Write-Host $linea -ForegroundColor White }
+    if ($null -ne $Script:GUIQueue) {
+        $Script:GUIQueue.Enqueue(@{ Texto = $linea; Tipo = $Tipo })
+    } else {
+        switch ($Tipo) {
+            "OK"      { Write-Host $linea -ForegroundColor Green }
+            "WARN"    { Write-Host $linea -ForegroundColor Yellow }
+            "ERROR"   { Write-Host $linea -ForegroundColor Red }
+            "SECCION" { Write-Host "`n$('=' * 70)`n  $Mensaje`n$('=' * 70)" -ForegroundColor Cyan }
+            default   { Write-Host $linea -ForegroundColor White }
+        }
     }
 
     Add-Content -Path $Script:LogFile -Value $linea -Encoding UTF8
@@ -987,7 +997,12 @@ function Verificar-SaludDisco {
         $bar    = ('#' * $filled) + ('-' * ($barLen - $filled))
         $color  = if ($pct -ge 80) { "Green" } elseif ($pct -ge 50) { "Yellow" } else { "Red" }
         $lineaSalud = "  Salud del disco     : [$bar] $pct%  - $($resultado.Estado)"
-        Write-Host $lineaSalud -ForegroundColor $color
+        if ($null -ne $Script:GUIQueue) {
+            $tipoSalud = if ($pct -ge 80) { "OK" } elseif ($pct -ge 50) { "WARN" } else { "ERROR" }
+            $Script:GUIQueue.Enqueue(@{ Texto = $lineaSalud; Tipo = $tipoSalud })
+        } else {
+            Write-Host $lineaSalud -ForegroundColor $color
+        }
         Add-Content -Path $Script:LogFile -Value $lineaSalud -Encoding UTF8
         if ($resultado.Factores.Count -gt 0) {
             Escribir-Log "  Factores detectados:" -Tipo INFO
@@ -1028,6 +1043,340 @@ function Mostrar-Resumen {
     Escribir-Log ""
     Escribir-Log "Mantenimiento completado. Se recomienda reiniciar el equipo." -Tipo OK
     Escribir-Log "Consulta el log completo para revisar todos los detalles." -Tipo INFO
+}
+
+# ============================================================
+#  SECCION: INTERFAZ GRAFICA (WinForms)
+# ============================================================
+function Mostrar-GUI {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    # ---- Ventana principal ----
+    $form                 = [System.Windows.Forms.Form]::new()
+    $form.Text            = "Mantenimiento Windows v$Script:Version"
+    $form.Size            = [System.Drawing.Size]::new(740, 780)
+    $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedSingle
+    $form.StartPosition   = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    $form.MaximizeBox     = $false
+    $form.BackColor       = [System.Drawing.Color]::FromArgb(30, 30, 30)
+    $form.ForeColor       = [System.Drawing.Color]::White
+
+    # ---- GroupBox: Seleccion de pasos ----
+    $grpPasos             = [System.Windows.Forms.GroupBox]::new()
+    $grpPasos.Text        = "Seleccion de pasos"
+    $grpPasos.Location    = [System.Drawing.Point]::new(10, 10)
+    $grpPasos.Size        = [System.Drawing.Size]::new(705, 295)
+    $grpPasos.ForeColor   = [System.Drawing.Color]::White
+    $form.Controls.Add($grpPasos)
+
+    $panelPasos            = [System.Windows.Forms.Panel]::new()
+    $panelPasos.Location   = [System.Drawing.Point]::new(8, 18)
+    $panelPasos.Size       = [System.Drawing.Size]::new(683, 268)
+    $panelPasos.AutoScroll = $true
+    $panelPasos.BackColor  = [System.Drawing.Color]::FromArgb(20, 20, 20)
+    $grpPasos.Controls.Add($panelPasos)
+
+    $chkPasos = [System.Windows.Forms.CheckBox[]]::new($Script:PasosDisponibles.Count)
+    $yPos = 4
+    for ($i = 0; $i -lt $Script:PasosDisponibles.Count; $i++) {
+        $paso     = $Script:PasosDisponibles[$i]
+        $chk      = [System.Windows.Forms.CheckBox]::new()
+        $etiqueta = "$($paso.Numero). $($paso.Nombre)"
+        if ($paso.Requerido) { $etiqueta += "  (requerido)" }
+        $chk.Text      = $etiqueta
+        $chk.Checked   = $paso.Seleccionado
+        $chk.Enabled   = -not $paso.Requerido
+        $chk.Location  = [System.Drawing.Point]::new(4, $yPos)
+        $chk.Size      = [System.Drawing.Size]::new(660, 22)
+        $chk.ForeColor = if ($paso.Requerido) { [System.Drawing.Color]::Gold } else { [System.Drawing.Color]::White }
+        $chk.BackColor = [System.Drawing.Color]::FromArgb(20, 20, 20)
+        $panelPasos.Controls.Add($chk)
+        $chkPasos[$i]  = $chk
+        $yPos += 24
+    }
+
+    # ---- Botones Seleccionar/Deseleccionar todos ----
+    $btnTodos             = [System.Windows.Forms.Button]::new()
+    $btnTodos.Text        = "Seleccionar todos"
+    $btnTodos.Location    = [System.Drawing.Point]::new(10, 313)
+    $btnTodos.Size        = [System.Drawing.Size]::new(155, 28)
+    $btnTodos.BackColor   = [System.Drawing.Color]::FromArgb(60, 60, 60)
+    $btnTodos.ForeColor   = [System.Drawing.Color]::White
+    $btnTodos.FlatStyle   = [System.Windows.Forms.FlatStyle]::Flat
+    $form.Controls.Add($btnTodos)
+
+    $btnNinguno           = [System.Windows.Forms.Button]::new()
+    $btnNinguno.Text      = "Deseleccionar todos"
+    $btnNinguno.Location  = [System.Drawing.Point]::new(175, 313)
+    $btnNinguno.Size      = [System.Drawing.Size]::new(165, 28)
+    $btnNinguno.BackColor = [System.Drawing.Color]::FromArgb(60, 60, 60)
+    $btnNinguno.ForeColor = [System.Drawing.Color]::White
+    $btnNinguno.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $form.Controls.Add($btnNinguno)
+
+    # ---- GroupBox: Opciones ----
+    $grpOpciones           = [System.Windows.Forms.GroupBox]::new()
+    $grpOpciones.Text      = "Opciones"
+    $grpOpciones.Location  = [System.Drawing.Point]::new(10, 350)
+    $grpOpciones.Size      = [System.Drawing.Size]::new(545, 52)
+    $grpOpciones.ForeColor = [System.Drawing.Color]::White
+    $form.Controls.Add($grpOpciones)
+
+    $chkAutoReiniciar           = [System.Windows.Forms.CheckBox]::new()
+    $chkAutoReiniciar.Text      = "Reinicio automatico"
+    $chkAutoReiniciar.Location  = [System.Drawing.Point]::new(10, 18)
+    $chkAutoReiniciar.Size      = [System.Drawing.Size]::new(155, 22)
+    $chkAutoReiniciar.ForeColor = [System.Drawing.Color]::White
+    $chkAutoReiniciar.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+    $chkAutoReiniciar.Checked   = $AutoReiniciar.IsPresent
+    $grpOpciones.Controls.Add($chkAutoReiniciar)
+
+    $lblEspera            = [System.Windows.Forms.Label]::new()
+    $lblEspera.Text       = "Espera (seg):"
+    $lblEspera.Location   = [System.Drawing.Point]::new(175, 20)
+    $lblEspera.Size       = [System.Drawing.Size]::new(90, 18)
+    $lblEspera.ForeColor  = [System.Drawing.Color]::White
+    $grpOpciones.Controls.Add($lblEspera)
+
+    $txtEspera            = [System.Windows.Forms.TextBox]::new()
+    $txtEspera.Text       = "$SegundosEspera"
+    $txtEspera.Location   = [System.Drawing.Point]::new(268, 17)
+    $txtEspera.Size       = [System.Drawing.Size]::new(55, 22)
+    $txtEspera.BackColor  = [System.Drawing.Color]::FromArgb(50, 50, 50)
+    $txtEspera.ForeColor  = [System.Drawing.Color]::White
+    $grpOpciones.Controls.Add($txtEspera)
+
+    # ---- Boton Iniciar ----
+    $btnIniciar           = [System.Windows.Forms.Button]::new()
+    $btnIniciar.Text      = "Iniciar"
+    $btnIniciar.Location  = [System.Drawing.Point]::new(563, 350)
+    $btnIniciar.Size      = [System.Drawing.Size]::new(152, 52)
+    $btnIniciar.BackColor = [System.Drawing.Color]::FromArgb(0, 128, 0)
+    $btnIniciar.ForeColor = [System.Drawing.Color]::White
+    $btnIniciar.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnIniciar.Font      = [System.Drawing.Font]::new("Segoe UI", 11, [System.Drawing.FontStyle]::Bold)
+    $form.Controls.Add($btnIniciar)
+
+    # ---- GroupBox: Registro ----
+    $grpLog               = [System.Windows.Forms.GroupBox]::new()
+    $grpLog.Text          = "Registro"
+    $grpLog.Location      = [System.Drawing.Point]::new(10, 412)
+    $grpLog.Size          = [System.Drawing.Size]::new(705, 270)
+    $grpLog.ForeColor     = [System.Drawing.Color]::White
+    $form.Controls.Add($grpLog)
+
+    $richLog              = [System.Windows.Forms.RichTextBox]::new()
+    $richLog.Location     = [System.Drawing.Point]::new(5, 18)
+    $richLog.Size         = [System.Drawing.Size]::new(693, 244)
+    $richLog.BackColor    = [System.Drawing.Color]::Black
+    $richLog.ForeColor    = [System.Drawing.Color]::White
+    $richLog.Font         = [System.Drawing.Font]::new("Consolas", 9)
+    $richLog.ReadOnly     = $true
+    $richLog.ScrollBars   = [System.Windows.Forms.RichTextBoxScrollBars]::Vertical
+    $grpLog.Controls.Add($richLog)
+
+    # ---- ProgressBar y etiqueta de conteo ----
+    $progressBar          = [System.Windows.Forms.ProgressBar]::new()
+    $progressBar.Location = [System.Drawing.Point]::new(10, 692)
+    $progressBar.Size     = [System.Drawing.Size]::new(615, 22)
+    $progressBar.Minimum  = 0
+    $progressBar.Maximum  = $Script:PasosDisponibles.Count
+    $progressBar.Value    = 0
+    $progressBar.Style    = [System.Windows.Forms.ProgressBarStyle]::Continuous
+    $form.Controls.Add($progressBar)
+
+    $lblProgreso          = [System.Windows.Forms.Label]::new()
+    $lblProgreso.Text     = "0 / $($Script:PasosDisponibles.Count)"
+    $lblProgreso.Location = [System.Drawing.Point]::new(633, 694)
+    $lblProgreso.Size     = [System.Drawing.Size]::new(85, 18)
+    $lblProgreso.ForeColor = [System.Drawing.Color]::White
+    $form.Controls.Add($lblProgreso)
+
+    # ---- Tabla de colores para el RichTextBox ----
+    $colorMap = @{
+        "INFO"    = [System.Drawing.Color]::White
+        "OK"      = [System.Drawing.Color]::FromArgb(0, 192, 0)
+        "WARN"    = [System.Drawing.Color]::FromArgb(255, 215, 0)
+        "ERROR"   = [System.Drawing.Color]::FromArgb(255, 68, 68)
+        "SECCION" = [System.Drawing.Color]::FromArgb(0, 255, 255)
+    }
+
+    # ---- Objeto de sincronizacion GUI <-> runspace ----
+    $sync = [hashtable]::Synchronized(@{
+        Cola     = [System.Collections.Queue]::Synchronized([System.Collections.Queue]::new())
+        Progreso = 0
+        Total    = 0
+        Listo    = $false
+        RS       = $null
+        PS_      = $null
+    })
+    $Script:GUIQueue = $sync.Cola
+
+    # ---- Timer (100 ms): drena la cola y actualiza la UI ----
+    $timer          = [System.Windows.Forms.Timer]::new()
+    $timer.Interval = 100
+    $timer.Add_Tick({
+        while ($sync.Cola.Count -gt 0) {
+            $entry = $sync.Cola.Dequeue()
+            $c     = if ($colorMap.ContainsKey($entry.Tipo)) { $colorMap[$entry.Tipo] } else { [System.Drawing.Color]::White }
+            $richLog.SelectionStart  = $richLog.TextLength
+            $richLog.SelectionLength = 0
+            $richLog.SelectionColor  = $c
+            $richLog.AppendText("$($entry.Texto)`n")
+            $richLog.ScrollToCaret()
+        }
+        $val = [Math]::Min($sync.Progreso, $progressBar.Maximum)
+        if ($progressBar.Value -ne $val) {
+            $progressBar.Value = $val
+            $lblProgreso.Text  = "$val / $($progressBar.Maximum)"
+        }
+        if ($sync.Listo) {
+            $timer.Stop()
+            $btnIniciar.Enabled = $true
+            $btnTodos.Enabled   = $true
+            $btnNinguno.Enabled = $true
+            for ($i = 0; $i -lt $chkPasos.Length; $i++) {
+                if (-not $Script:PasosDisponibles[$i].Requerido) {
+                    $chkPasos[$i].Enabled = $true
+                }
+            }
+            $r = [System.Windows.Forms.MessageBox]::Show(
+                "Mantenimiento completado.`n`n¿Desea reiniciar el equipo ahora?",
+                "Mantenimiento Windows",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+            if ($r -eq [System.Windows.Forms.DialogResult]::Yes) {
+                Restart-Computer -Force
+            }
+        }
+    })
+
+    # ---- FormClosing: limpiar runspace activo ----
+    $form.Add_FormClosing({
+        $timer.Stop()
+        if ($null -ne $sync.PS_) {
+            try { $sync.PS_.Stop()    } catch {}
+            try { $sync.PS_.Dispose() } catch {}
+        }
+        if ($null -ne $sync.RS) {
+            try { $sync.RS.Close(); $sync.RS.Dispose() } catch {}
+        }
+    })
+
+    # ---- Handler: Seleccionar todos ----
+    $btnTodos.Add_Click({
+        for ($i = 0; $i -lt $chkPasos.Length; $i++) {
+            $chkPasos[$i].Checked = $true
+        }
+    })
+
+    # ---- Handler: Deseleccionar todos ----
+    $btnNinguno.Add_Click({
+        for ($i = 0; $i -lt $chkPasos.Length; $i++) {
+            if (-not $Script:PasosDisponibles[$i].Requerido) {
+                $chkPasos[$i].Checked = $false
+            }
+        }
+    })
+
+    # ---- Handler: Iniciar ----
+    $btnIniciar.Add_Click({
+        # Leer checkboxes -> actualizar seleccion de pasos
+        for ($i = 0; $i -lt $Script:PasosDisponibles.Count; $i++) {
+            $Script:PasosDisponibles[$i].Seleccionado = $chkPasos[$i].Checked
+        }
+
+        $totalSel = @($Script:PasosDisponibles | Where-Object { $_.Seleccionado }).Count
+        if ($totalSel -eq 0) {
+            [void][System.Windows.Forms.MessageBox]::Show(
+                "Debes seleccionar al menos un paso.",
+                "Mantenimiento Windows",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+            return
+        }
+
+        # Deshabilitar controles durante ejecucion
+        $btnIniciar.Enabled = $false
+        $btnTodos.Enabled   = $false
+        $btnNinguno.Enabled = $false
+        for ($i = 0; $i -lt $chkPasos.Length; $i++) { $chkPasos[$i].Enabled = $false }
+
+        # Resetear estado de sincronizacion
+        $sync.Progreso = 0
+        $sync.Listo    = $false
+        $progressBar.Maximum = $totalSel
+        $progressBar.Value   = 0
+        $lblProgreso.Text    = "0 / $totalSel"
+
+        # Crear directorio de logs si no existe
+        if (-not (Test-Path $Script:LogDir)) {
+            New-Item -ItemType Directory -Path $Script:LogDir -Force | Out-Null
+        }
+
+        # Copiar funciones de la sesion actual al InitialSessionState del runspace
+        $iss = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+        Get-ChildItem Function: | ForEach-Object {
+            try {
+                $iss.Commands.Add(
+                    [System.Management.Automation.Runspaces.SessionStateFunctionEntry]::new(
+                        $_.Name, $_.Definition))
+            } catch {}
+        }
+
+        $rs = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspace($iss)
+        $rs.Open()
+        $sync.RS = $rs
+
+        $ps = [System.Management.Automation.PowerShell]::Create()
+        $ps.Runspace = $rs
+        $sync.PS_ = $ps
+
+        # Capturar variables del scope actual para inyectarlas en el runspace
+        $logFile_ = $Script:LogFile
+        $logDir_  = $Script:LogDir
+        $version_ = $Script:Version
+        $resumen_ = $Script:Resumen
+        $pasos_   = $Script:PasosDisponibles
+        $cola_    = $sync.Cola
+
+        [void]$ps.AddScript({
+            param($logFile, $logDir, $version, $resumen, $pasos, $guiQueue, $sync)
+            $Script:LogFile          = $logFile
+            $Script:LogDir           = $logDir
+            $Script:Version          = $version
+            $Script:Resumen          = $resumen
+            $Script:PasosDisponibles = $pasos
+            $Script:GUIQueue         = $guiQueue
+            $Script:FechaInicio      = Get-Date
+
+            foreach ($paso in ($Script:PasosDisponibles | Where-Object { $_.Seleccionado } | Sort-Object Numero)) {
+                Escribir-Log "Ejecutando paso $($paso.Numero): $($paso.Nombre)" -Tipo INFO
+                try   { & $paso.Funcion }
+                catch { Escribir-Log "Error en paso $($paso.Numero): $($_.Exception.Message)" -Tipo ERROR }
+                $sync.Progreso++
+            }
+            Mostrar-Resumen
+            $sync.Listo = $true
+        })
+
+        [void]$ps.AddParameters(@{
+            logFile  = $logFile_
+            logDir   = $logDir_
+            version  = $version_
+            resumen  = $resumen_
+            pasos    = $pasos_
+            guiQueue = $cola_
+            sync     = $sync
+        })
+
+        $ps.BeginInvoke() | Out-Null
+        $timer.Start()
+    })
+
+    [void]$form.ShowDialog()
+    $Script:GUIQueue = $null
 }
 
 # ============================================================
@@ -1255,6 +1604,12 @@ function Main {
     if ($build -lt 10240) {
         Write-Host "ERROR: Este script requiere Windows 10 o superior." -ForegroundColor Red
         exit 1
+    }
+
+    # --- Bifurcacion GUI ---
+    if ($GUI) {
+        Mostrar-GUI
+        return
     }
 
     # --- Seleccion de pasos ---
