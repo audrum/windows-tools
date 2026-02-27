@@ -15,7 +15,12 @@ function Invoke-Debloat {
         return
     }
 
-    $bloque = [scriptblock]::Create((Invoke-RestMethod -Uri $ScriptUrl))
+    try {
+        $bloque = [scriptblock]::Create((Invoke-RestMethod -Uri $ScriptUrl))
+    } catch {
+        Write-Error "No se pudo descargar el script. Verifica tu conexion a internet. ($ScriptUrl)"
+        exit 1
+    }
     & $bloque
 }
 
