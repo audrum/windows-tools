@@ -65,22 +65,22 @@ Al iniciarse, el script presenta un menu de casillas donde cada opcion puede act
 
 ## Opciones disponibles
 
-| N | Opcion | Activa por defecto |
-|---|---|---|
-| 1 | Deshabilitar telemetria y recopilacion de datos | Si |
-| 2 | Deshabilitar Windows Copilot (Windows 11) | Si |
-| 3 | Deshabilitar Cortana (Windows 10) y busqueda web de Bing | Si |
-| 4 | Deshabilitar funciones de consumidor (instalacion automatica de apps) | Si |
-| 5 | Eliminar apps UWP innecesarias (bloatware y Xbox) | Si |
-| 6 | Deshabilitar apps en segundo plano | Si |
-| 7 | Deshabilitar tareas programadas de diagnostico | Si |
-| 8 | Optimizar efectos visuales (modo rendimiento) | No |
-| 9 | Desinstalar OneDrive | No |
-| 10 | Deshabilitar Game DVR y Xbox Game Bar | Si |
-| 11 | Deshabilitar historial de actividad y linea de tiempo | Si |
-| 12 | Desactivar consejos, trucos y sugerencias de Windows | Si |
-| 13 | Deshabilitar Wi-Fi Sense | Si |
-| 14 | Limpiar opciones del menu contextual | No |
+| N | Opcion | Por defecto | Descripcion |
+|---|---|---|---|
+| 1 | Deshabilitar telemetria y recopilacion de datos | Si | Desactiva el servicio DiagTrack y establece AllowTelemetry=0 via politica de grupo |
+| 2 | Deshabilitar Windows Copilot (Windows 11) | Si | Desactiva Copilot mediante clave de registro en HKCU y HKLM |
+| 3 | Deshabilitar Cortana y busqueda web de Bing | Si | Impide que el buscador de Windows consulte la web y desactiva Cortana |
+| 4 | Deshabilitar funciones de consumidor | Si | Evita que Windows instale apps automaticamente desde la Tienda (CloudContent) |
+| 5 | Eliminar apps UWP innecesarias | Si | Desinstala bloatware preinstalado: Bing, Xbox, Skype, Maps, ZuneMusic y otros |
+| 6 | Deshabilitar apps en segundo plano | Si | Impide que las apps de la Tienda ejecuten tareas en segundo plano |
+| 7 | Deshabilitar tareas programadas de diagnostico | Si | Desactiva tareas del CEIP, Application Experience y DiskDiagnostic |
+| 8 | Optimizar efectos visuales (modo rendimiento) | No | Reduce animaciones y transparencias para liberar recursos de CPU y GPU |
+| 9 | Desinstalar OneDrive | No | Ejecuta OneDriveSetup.exe /uninstall y elimina el icono del Explorador de archivos |
+| 10 | Deshabilitar Game DVR y Xbox Game Bar | Si | Desactiva la grabacion de pantalla de juegos para reducir overhead en CPU |
+| 11 | Deshabilitar historial de actividad y linea de tiempo | Si | Impide que Windows registre y sincronice el historial de actividad del usuario |
+| 12 | Desactivar consejos y sugerencias de Windows | Si | Elimina notificaciones de ayuda contextual y funciones de Spotlight |
+| 13 | Deshabilitar Wi-Fi Sense | Si | Evita la conexion automatica a redes Wi-Fi abiertas compartidas por contactos |
+| 14 | Limpiar opciones del menu contextual | No | Elimina entradas de Compartir y Imprimir en 3D del menu contextual del Explorador |
 
 ---
 
