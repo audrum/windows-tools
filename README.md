@@ -8,8 +8,8 @@ Coleccion de scripts de PowerShell para mantenimiento y optimizacion de equipos 
 
 | Herramienta | Descripcion | Comando rapido |
 |---|---|---|
-| [Mantenimiento Windows](mantenimiento/README.md) | Limpieza, reparacion del sistema, actualizaciones y diagnostico completo | `irm run.andresbolivar.me/mantenimiento/run.ps1 \| iex` |
-| [Debloat Windows](debloat/README.md) | Eliminacion de aplicaciones preinstaladas y ajustes de privacidad | `irm run.andresbolivar.me/debloat/run.ps1 \| iex` |
+| [Mantenimiento Windows](mantenimiento/README.md) | Limpieza, reparacion del sistema, actualizaciones y diagnostico completo | `irm run.andresbolivar.me/mantenimiento/run.ps1 | iex` |
+| [Debloat Windows](debloat/README.md) | Eliminacion de aplicaciones preinstaladas y ajustes de privacidad | `irm run.andresbolivar.me/debloat/run.ps1 | iex` |
 
 ---
 
