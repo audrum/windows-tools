@@ -8,8 +8,8 @@
 
 # Verificar que el script se ejecuta con privilegios de Administrador
 if (!([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Warning "¡Este script necesita ejecutarse como Administrador! Por favor, abre PowerShell como Administrador e inténtalo de nuevo."
-    break
+    Write-Warning "Este script necesita ejecutarse como Administrador. Usa: irm run.andresbolivar.me/debloat/run.ps1 | iex"
+    exit 1
 }
 
 # Definir opciones
@@ -66,9 +66,11 @@ while ($running) {
     }
     elseif ([int]::TryParse($choice, [ref]$null)) {
         $num = [int]$choice
-        $match = $options | Where-Object { $_.Id -eq $num }
-        if ($match) {
-            $match.Selected = -not $match.Selected
+        if ($num -ge 1 -and $num -le $options.Count) {
+            $match = $options | Where-Object { $_.Id -eq $num }
+            if ($match) {
+                $match.Selected = -not $match.Selected
+            }
         }
     }
 }
@@ -274,7 +276,8 @@ $afterNetConns = (Get-NetTCPConnection -State Established -ErrorAction SilentlyC
 
 $logDir = "C:\Debloat-Windows"
 if (!(Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
-$logFile = "$logDir\debloat_log.txt"
+$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$logFile = "$logDir\debloat_log_$timestamp.txt"
 
 $logContent = @"
 ==================================================
